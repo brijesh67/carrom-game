@@ -96,7 +96,7 @@ const Physics = (() => {
 
   // Returns true when all pieces have stopped
   function allStopped(pieces) {
-    return pieces.every(p => p.pocketed || (p.vx === 0 && p.vy === 0));
+    return pieces.every(p => p.pocketed || (p.vx * p.vx + p.vy * p.vy < 0.25));
   }
 
   // Main step: integrate positions, apply friction/walls, resolve collisions

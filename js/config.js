@@ -8,7 +8,7 @@ const CFG = {
   BX: 56, BY: 56, BS: 608,
 
   // Physics
-  FRICTION:     270,   // px/s² deceleration (Coulomb model)
+  FRICTION:     700,   // px/s² deceleration (Coulomb model)
   RESTITUTION:  0.80,  // piece-piece bounce coefficient
   WALL_REST:    0.72,  // piece-wall bounce
   MIN_SPEED:    1.2,   // velocity threshold to stop piece (px/s)
