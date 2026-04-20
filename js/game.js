@@ -158,6 +158,7 @@ class Game {
         this._turnResult = { ownCoinPocketed:0, strikerPocketed:false, queenPocketedNow:false };
         this._strikerHitSomething = false;
         this.accumulator = 0;
+        this._shotTimer  = 0;
         r.phase = 'SHOOTING';
         Sound.shoot();
       } else {
@@ -181,6 +182,8 @@ class Game {
 
   // ─── SHOOTING ─────────────────────────────────────────────────────────────
   _tickShooting(dt) {
+    this._shotTimer = (this._shotTimer || 0) + dt;
+    if (this._shotTimer > 10) { this._shotTimer = 0; this._endTurn(); return; }
     this.accumulator += dt;
     const allPieces = [this.striker, ...this.pieces];
 

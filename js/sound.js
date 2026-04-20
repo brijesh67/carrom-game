@@ -46,7 +46,7 @@ const Sound = (() => {
 
   return {
     toggle() { enabled = !enabled; return enabled; },
-    hit()    { tone(350 + Math.random()*150, 'square', 0.07, 0.18); },
+    hit: (() => { let last = 0; return () => { const now = performance.now(); if (now - last < 120) return; last = now; tone(350 + Math.random()*150, 'square', 0.07, 0.18); }; })(),
     wall()   { tone(220, 'triangle', 0.06, 0.12); },
     pocket() { tone(180, 'sine', 0.35, 0.28); setTimeout(() => tone(120, 'sine', 0.25, 0.20), 80); },
     shoot()  { noise(0.04, 0.15); },
