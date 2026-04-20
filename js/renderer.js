@@ -165,42 +165,56 @@ const Renderer = (() => {
     }
   }
 
-  // ─── Aim guide ───────────────────────────────────────────────────────────
-  function drawAimGuide(ctx, striker, pullVec, power, rayTarget) {
+  // ─── Pull-back aim guide (slingshot mechanic) ────────────────────────────
+  // anchorX/Y = resting baseline position (where shot fires from)
+  // striker   = current pulled-back visual position
+  function drawAimGuide(ctx, striker, anchorX, anchorY, power, rayTarget) {
     if (!striker || striker.pocketed) return;
-    const { x, y } = striker;
-    const len = pullVec.len();
-    if (len < 4) return;
 
-    const dir = pullVec.scale(-1 / len); // shot direction
-    const maxLen = 600;
-    const tx = rayTarget ? rayTarget.x : x + dir.x * maxLen;
-    const ty = rayTarget ? rayTarget.y : y + dir.y * maxLen;
+    const dx = anchorX - striker.x;
+    const dy = anchorY - striker.y;
+    const pullLen = Math.sqrt(dx*dx + dy*dy);
+    if (pullLen < 4) return;
 
-    // Dotted aim line
+    // Shot direction = from pulled pos toward anchor (and beyond)
+    const ndx = dx / pullLen, ndy = dy / pullLen;
+    const maxLine = 680;
+    const tx = rayTarget ? rayTarget.x : anchorX + ndx * maxLine;
+    const ty = rayTarget ? rayTarget.y : anchorY + ndy * maxLine;
+
+    // Dotted aim line from anchor forward
     ctx.save();
-    ctx.setLineDash([8, 8]);
+    ctx.setLineDash([9, 7]);
     ctx.strokeStyle = C.AIM;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(anchorX, anchorY); ctx.lineTo(tx, ty); ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
 
-    // Circle at predicted contact point
+    // Contact prediction circle
     if (rayTarget && rayTarget.hit) {
-      ctx.strokeStyle = 'rgba(255,220,60,0.55)';
+      ctx.strokeStyle = 'rgba(255,220,60,0.5)';
       ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.arc(tx, ty, CFG.CR, 0, Math.PI*2); ctx.stroke();
     }
 
-    // Elastic band (pull-back line from striker to pull point)
-    const px = x - dir.x * len, py = y - dir.y * len;
-    ctx.strokeStyle = `rgba(100,200,50,${0.4 + power/CFG.MAX_POWER*0.5})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(px, py); ctx.stroke();
-    // Pull point dot
-    ctx.fillStyle = 'rgba(100,200,50,0.8)';
-    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
+    // Elastic band: two lines from anchor to striker edges (slingshot fork)
+    const perp = { x: -ndy * 5, y: ndx * 5 };
+    const alpha = 0.45 + (power / CFG.MAX_POWER) * 0.45;
+    ctx.strokeStyle = `rgba(80,200,60,${alpha})`;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(anchorX + perp.x, anchorY + perp.y);
+    ctx.lineTo(striker.x, striker.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(anchorX - perp.x, anchorY - perp.y);
+    ctx.lineTo(striker.x, striker.y);
+    ctx.stroke();
+
+    // Anchor dot
+    ctx.fillStyle = `rgba(80,200,60,${alpha})`;
+    ctx.beginPath(); ctx.arc(anchorX, anchorY, 5, 0, Math.PI*2); ctx.fill();
   }
 
   // ─── Baseline highlight ───────────────────────────────────────────────────

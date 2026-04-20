@@ -95,14 +95,6 @@ class Rules {
       }
     }
 
-    // Immediate queen cover: pocketed queen AND own coin same shot
-    if (queenPocketedNow && ownCoinPocketed > 0) {
-      this.queenNeedsCover = false;
-      this.queenCovered    = true;
-      this.queenHolder     = this.currentPlayer;
-      this.setMessage('Queen covered!', '#ffcc00');
-    }
-
     return { ownCoinPocketed, strikerPocketed, queenPocketedNow };
   }
 
@@ -119,7 +111,6 @@ class Rules {
     if (strikerPocketed) {
       this.foul = true;
       Sound.foul();
-      // Return one own pocketed coin to board (near center)
       const arr = this.pocketed[this.myColor];
       if (arr.length > 0) {
         const coin = arr.pop();
@@ -128,8 +119,8 @@ class Rules {
         coin.y = CFG.CY + (Math.random()-0.5)*80;
         coin.vx = coin.vy = 0;
       }
-      // Queen that was just pocketed this turn returns
-      if (this.queenHolder === this.currentPlayer && this.queenNeedsCover) {
+      // Queen awaiting cover also returns on foul
+      if (this.queenNeedsCover && this.queenHolder === this.currentPlayer) {
         this._returnQueen(queenPiece);
         this.setMessage('Foul! Striker pocketed — queen returned', '#ff4444', 3);
       } else {
@@ -139,35 +130,54 @@ class Rules {
       return;
     }
 
-    // ── Queen needs cover (from previous turn) ─────────────────────────────
+    // ── Queen pocketed this shot ───────────────────────────────────────────
+    if (queenPocketedNow) {
+      if (ownCoinPocketed > 0) {
+        // Covered same shot — queen stays
+        this.queenNeedsCover = false;
+        this.queenCovered    = true;
+        this.setMessage('Queen pocketed & covered! Play again', '#ffcc00', 3);
+        this.extraShot = true;
+        this._checkWin();
+        return;
+      } else {
+        // Give player ONE extra shot to cover
+        this.queenNeedsCover = true;
+        this.queenHolder     = this.currentPlayer;
+        this.setMessage('Queen pocketed! Cover it next shot or it returns', '#ffaa00', 4);
+        this.extraShot = true;
+        return;
+      }
+    }
+
+    // ── Cover shot (queenNeedsCover set on previous turn) ─────────────────
     if (this.queenNeedsCover && this.queenHolder === this.currentPlayer) {
       if (ownCoinPocketed > 0) {
         this.queenNeedsCover = false;
         this.queenCovered    = true;
-        this.setMessage('Queen covered! Extra turn', '#ffcc00', 2);
+        this.setMessage('Queen covered! Play again', '#ffcc00', 2.5);
         this.extraShot = true;
-        return; // same player continues
+        this._checkWin();
+        return;
       } else {
-        // Didn't cover → queen returns to centre
+        // Failed to cover — queen returns, lose turn
         this._returnQueen(queenPiece);
-        this.setMessage('Queen not covered — returned to centre', '#ff8844', 2.5);
         this.queenNeedsCover = false;
         this.queenHolder     = -1;
+        this.setMessage('Queen not covered — returned to centre', '#ff8844', 2.5);
+        this._switchPlayer();
+        return;
       }
     }
 
-    // ── Normal turn resolution ─────────────────────────────────────────────
+    // ── Normal turn ────────────────────────────────────────────────────────
     if (ownCoinPocketed > 0) {
-      // Pocketed own coin(s) → extra turn
       this.extraShot = true;
-      const q = this.queenNeedsCover ? ' — cover queen!' : '';
-      this.setMessage(`+${ownCoinPocketed} pocketed! Play again${q}`, '#88ff88', 2);
+      this.setMessage(`+${ownCoinPocketed} pocketed! Play again`, '#88ff88', 2);
     } else {
-      // No own coins pocketed → switch player
       this._switchPlayer();
     }
 
-    // ── Check win condition ────────────────────────────────────────────────
     this._checkWin();
   }
 
@@ -216,10 +226,10 @@ class Rules {
 
   phaseLabel() {
     const map = {
-      MENU: 'MENU',
-      PLACING: `P${this.currentPlayer+1} — Click baseline to shoot`,
-      AIMING:  `P${this.currentPlayer+1} — Pull back & release`,
-      SHOOTING:'Shooting…',
+      MENU:      'MENU',
+      PLACING:   `P${this.currentPlayer+1} — Hover to position, click & drag striker to pull`,
+      AIMING:    `P${this.currentPlayer+1} — Release to fire!`,
+      SHOOTING:  'Shooting…',
       GAME_OVER: 'Game Over',
     };
     return map[this.phase] || this.phase;
