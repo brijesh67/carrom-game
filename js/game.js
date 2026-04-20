@@ -55,10 +55,10 @@ class Game {
     return { x, y, vx:0, vy:0, r: CFG.CR, mass:1, type, id, pocketed:false };
   }
 
-  // Create striker at baseline center for the given player
+  // Both players shoot from the same (bottom) baseline — single-device friendly
   _newStriker(player) {
-    const bly = player === 0 ? CFG.BL1_Y : CFG.BL2_Y;
-    return { x: CFG.CX, y: bly, vx:0, vy:0, r: CFG.SR, mass:1.6, type:'striker', id:'striker', pocketed:false };
+    return { x: CFG.CX, y: CFG.BL1_Y, vx:0, vy:0, r: CFG.SR, mass:1.6,
+             type:'striker', id:'striker', pocketed:false, player };
   }
 
   get queen() { return this.pieces.find(p => p.type === 'queen'); }
@@ -93,7 +93,7 @@ class Game {
   // Mousedown near striker → begin pull-back (AIMING phase)
   _tickPlacing() {
     const r   = this.rules;
-    const bly = r.currentPlayer === 0 ? CFG.BL1_Y : CFG.BL2_Y;
+    const bly = CFG.BL1_Y; // both players use bottom baseline
 
     // Striker tracks mouse x along baseline (hover preview)
     if (!this.input.isDown) {
@@ -157,6 +157,7 @@ class Game {
 
         this._turnResult = { ownCoinPocketed:0, strikerPocketed:false, queenPocketedNow:false };
         this._strikerHitSomething = false;
+        this.accumulator = 0;
         r.phase = 'SHOOTING';
         Sound.shoot();
       } else {

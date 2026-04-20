@@ -112,17 +112,21 @@ const Renderer = (() => {
   }
 
   // ─── Pieces ──────────────────────────────────────────────────────────────
-  function coinColors(type) {
-    if (type === 'black')  return { base: C.BLACK_BASE, ring: C.BLACK_RING,  shine: 'rgba(160,150,150,0.22)' };
-    if (type === 'white')  return { base: C.WHITE_BASE, ring: C.WHITE_RING,  shine: 'rgba(255,255,255,0.50)' };
-    if (type === 'queen')  return { base: C.RED_BASE,   ring: C.RED_RING,    shine: 'rgba(255,160,110,0.38)' };
-    /* striker */          return { base: C.STRIKER_BASE,ring:C.STRIKER_RING, shine: 'rgba(255,240,160,0.45)' };
+  function coinColors(piece) {
+    const t = piece.type;
+    if (t === 'black') return { base: C.BLACK_BASE, ring: C.BLACK_RING,   shine: 'rgba(160,150,150,0.22)' };
+    if (t === 'white') return { base: C.WHITE_BASE, ring: C.WHITE_RING,   shine: 'rgba(255,255,255,0.50)' };
+    if (t === 'queen') return { base: C.RED_BASE,   ring: C.RED_RING,     shine: 'rgba(255,160,110,0.38)' };
+    // striker — P1=gold, P2=orange-red
+    return piece.player === 1
+      ? { base: '#cc4420', ring: '#ee6644', shine: 'rgba(255,180,140,0.45)' }
+      : { base: C.STRIKER_BASE, ring: C.STRIKER_RING, shine: 'rgba(255,240,160,0.45)' };
   }
 
   function drawPiece(ctx, piece) {
     if (piece.pocketed) return;
     const { x, y, r, type } = piece;
-    const col = coinColors(type);
+    const col = coinColors(piece);
 
     // Drop shadow
     ctx.save();
@@ -219,7 +223,7 @@ const Renderer = (() => {
 
   // ─── Baseline highlight ───────────────────────────────────────────────────
   function drawBaselineHighlight(ctx, player) {
-    const bly = player === 0 ? CFG.BL1_Y : CFG.BL2_Y;
+    const bly = CFG.BL1_Y; // always bottom baseline
     const col = player === 0 ? C.P1 : C.P2;
     ctx.fillStyle = col.replace(')', ',0.12)').replace('rgb','rgba');
     ctx.fillRect(CFG.BL_X1, bly - 20, CFG.BL_X2 - CFG.BL_X1, 40);
