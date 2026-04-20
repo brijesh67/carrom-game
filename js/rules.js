@@ -102,7 +102,7 @@ class Rules {
   // pieces: all piece objects (to mutate queen back to board if uncovered)
   // queenPiece: the queen piece object (to reset position)
   resolveTurn(turnResult, queenPiece) {
-    const { ownCoinPocketed, strikerPocketed } = turnResult;
+    const { ownCoinPocketed, strikerPocketed, queenPocketedNow } = turnResult;
 
     this.foul        = false;
     this.extraShot   = false;
