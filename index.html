@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carrom Board</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="wrapper">
+    <canvas id="carrom"></canvas>
+    <div id="toolbar">
+      <button id="soundBtn" title="Toggle sound">🔊</button>
+      <span id="hint">Click baseline → drag back → release to shoot</span>
+    </div>
+  </div>
+
+  <!-- Load order matters: config & vec2 first, then engine modules, then game -->
+  <script src="js/config.js"></script>
+  <script src="js/vec2.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/physics.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/rules.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
