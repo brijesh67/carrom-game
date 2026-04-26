@@ -119,20 +119,20 @@ class Game {
 
   // ─── PLACING ──────────────────────────────────────────────────────────────
   _tickPlacing() {
-    // In multiplayer, block input when it's the remote player's turn
     if (this._isRemoteTurn()) { this.input.consumeRelease(); return; }
 
     const r   = this.rules;
     const bly = (this._net && r.currentPlayer === 1) ? CFG.BL2_Y : CFG.BL1_Y;
+    const inp = this._getInput();
 
     if (!this.input.isDown) {
-      const hx = Math.max(CFG.BL_X1 + CFG.SR, Math.min(CFG.BL_X2 - CFG.SR, this.input.currX));
+      const hx = Math.max(CFG.BL_X1 + CFG.SR, Math.min(CFG.BL_X2 - CFG.SR, inp.currX));
       this.striker.x = hx;
       this.striker.y = bly;
     }
 
     if (this.input.isDown) {
-      const sx = this.input.startX, sy = this.input.startY;
+      const sx = inp.startX, sy = inp.startY;
       const dx = sx - this.striker.x, dy = sy - this.striker.y;
       const distToStriker = Math.sqrt(dx*dx + dy*dy);
 
@@ -153,10 +153,11 @@ class Game {
   _tickAiming() {
     if (this._isRemoteTurn()) { this.input.consumeRelease(); return; }
 
-    const r = this.rules;
+    const r   = this.rules;
+    const inp = this._getInput();
 
-    const dx = this.input.currX - this._anchorX;
-    const dy = this.input.currY - this._anchorY;
+    const dx = inp.currX - this._anchorX;
+    const dy = inp.currY - this._anchorY;
     const dist = Math.sqrt(dx*dx + dy*dy);
     const clamped = Math.min(dist, CFG.MAX_PULL);
 
@@ -292,6 +293,24 @@ class Game {
     return this._net !== null && this.rules.currentPlayer !== this._myPlayer;
   }
 
+  // Returns mouse coords flipped 180° for P2 so their input matches the rotated canvas
+  _getInput() {
+    if (this._myPlayer === 1 && this._net) {
+      return {
+        currX:  CFG.SIZE - this.input.currX,
+        currY:  CFG.SIZE - this.input.currY,
+        startX: CFG.SIZE - this.input.startX,
+        startY: CFG.SIZE - this.input.startY,
+      };
+    }
+    return {
+      currX:  this.input.currX,
+      currY:  this.input.currY,
+      startX: this.input.startX,
+      startY: this.input.startY,
+    };
+  }
+
   // ─── Game-over listener ───────────────────────────────────────────────────
   _attachGameOverListener() {
     if (this._goListener) this.canvas.removeEventListener('click', this._goListener);
@@ -318,8 +337,13 @@ class Game {
   _render() {
     const ctx = this.ctx;
     const r   = this.rules;
+    const p2flip = this._myPlayer === 1 && this._net;
 
     ctx.clearRect(0, 0, CFG.SIZE, CFG.SIZE);
+
+    // Rotate canvas 180° for P2 so their baseline is at the bottom
+    if (p2flip) { ctx.save(); ctx.translate(CFG.SIZE, CFG.SIZE); ctx.rotate(Math.PI); }
+
     Renderer.drawBoard(ctx);
 
     if (r.phase === 'PLACING' || r.phase === 'AIMING') {
@@ -349,9 +373,6 @@ class Game {
       }
     }
 
-    Renderer.drawHUD(ctx, r.phaseLabel(), r.scores, r.pocketed, r.currentPlayer);
-    if (r.message) Renderer.drawMessage(ctx, r.message, r.messageColor);
-
     if (r.queenNeedsCover) {
       ctx.save();
       ctx.font = 'bold 13px monospace';
@@ -360,6 +381,12 @@ class Game {
       ctx.fillText('⚠ Cover the queen this shot!', CFG.CX, CFG.BY - 6);
       ctx.restore();
     }
+
+    // Restore flip before drawing screen-space UI
+    if (p2flip) ctx.restore();
+
+    Renderer.drawHUD(ctx, r.phaseLabel(), r.scores, r.pocketed, r.currentPlayer);
+    if (r.message) Renderer.drawMessage(ctx, r.message, r.messageColor);
 
     // "Waiting for opponent" banner in multiplayer
     if (this._net && this._isRemoteTurn() &&
