@@ -15,6 +15,27 @@
     </div>
   </div>
 
+  <!-- Lobby overlay (shown before game starts) -->
+  <div id="lobby">
+    <div class="lobby-box">
+      <div class="lobby-title">CARROM</div>
+      <div class="lobby-sub">Board Game</div>
+
+      <button class="lobby-btn primary" id="localBtn">▶ Local 2-Player</button>
+
+      <div class="lobby-divider">── or play online ──</div>
+
+      <button class="lobby-btn" id="createBtn">Create Online Room</button>
+
+      <div class="join-row">
+        <input id="codeInput" placeholder="ROOM CODE" maxlength="4" spellcheck="false">
+        <button class="lobby-btn" id="joinBtn">Join</button>
+      </div>
+
+      <div id="lobbyMsg"></div>
+    </div>
+  </div>
+
   <!-- Load order matters: config & vec2 first, then engine modules, then game -->
   <script src="js/config.js"></script>
   <script src="js/vec2.js"></script>
@@ -23,6 +44,73 @@
   <script src="js/renderer.js"></script>
   <script src="js/input.js"></script>
   <script src="js/rules.js"></script>
+  <script src="js/network.js"></script>
   <script src="js/game.js"></script>
+
+  <script>
+    // ── Lobby wiring ────────────────────────────────────────────────────────
+    const lobby   = document.getElementById('lobby');
+    const lobbyMsg = document.getElementById('lobbyMsg');
+    const codeInput = document.getElementById('codeInput');
+
+    function setMsg(text, color) {
+      lobbyMsg.textContent = text;
+      lobbyMsg.style.color = color || '#aaa';
+    }
+
+    function hideLobby() {
+      lobby.style.display = 'none';
+    }
+
+    // Local 2-player — no network
+    document.getElementById('localBtn').onclick = () => {
+      hideLobby();
+      game.startLocal();
+    };
+
+    // Create online room
+    document.getElementById('createBtn').onclick = async () => {
+      setMsg('Connecting…', '#aaa');
+      const net = new Network();
+      try {
+        await net.connect();
+      } catch {
+        setMsg('Cannot reach server. Is it running?', '#f66'); return;
+      }
+      net.createRoom();
+      net.on('room_created', ({ code }) => {
+        setMsg(`Room code: ${code}  —  waiting for opponent…`, '#ffcc00');
+        document.getElementById('createBtn').textContent = `Room: ${code}`;
+      });
+      net.on('opponent_joined', () => {
+        setMsg('Opponent joined! Starting…', '#88ff88');
+        setTimeout(() => { hideLobby(); game.startMultiplayer(net, 0); }, 600);
+      });
+      net.on('error', ({ message }) => setMsg(message, '#f66'));
+    };
+
+    // Join room
+    document.getElementById('joinBtn').onclick = async () => {
+      const code = codeInput.value.trim().toUpperCase();
+      if (code.length < 2) { setMsg('Enter a room code', '#f66'); return; }
+      setMsg('Connecting…', '#aaa');
+      const net = new Network();
+      try {
+        await net.connect();
+      } catch {
+        setMsg('Cannot reach server. Is it running?', '#f66'); return;
+      }
+      net.joinRoom(code);
+      net.on('room_joined', () => {
+        setMsg('Joined! Starting…', '#88ff88');
+        setTimeout(() => { hideLobby(); game.startMultiplayer(net, 1); }, 600);
+      });
+      net.on('error', ({ message }) => setMsg(message, '#f66'));
+    };
+
+    codeInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('joinBtn').click();
+    });
+  </script>
 </body>
 </html>

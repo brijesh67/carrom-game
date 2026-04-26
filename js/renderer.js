@@ -222,8 +222,8 @@ const Renderer = (() => {
   }
 
   // ─── Baseline highlight ───────────────────────────────────────────────────
-  function drawBaselineHighlight(ctx, player) {
-    const bly = CFG.BL1_Y; // always bottom baseline
+  function drawBaselineHighlight(ctx, player, multiplayer) {
+    const bly = (multiplayer && player === 1) ? CFG.BL2_Y : CFG.BL1_Y;
     const col = player === 0 ? C.P1 : C.P2;
     ctx.fillStyle = col.replace(')', ',0.12)').replace('rgb','rgba');
     ctx.fillRect(CFG.BL_X1, bly - 20, CFG.BL_X2 - CFG.BL_X1, 40);

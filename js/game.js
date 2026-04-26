@@ -13,16 +13,42 @@ class Game {
     this.blinkT  = 0;
 
     // Pull-back mechanic state
-    this._anchorX = 0;  // baseline resting position (shot fires from here)
+    this._anchorX = 0;
     this._anchorY = 0;
-    this._pulling = false; // true while player is dragging striker back
+    this._pulling = false;
 
     // Per-shot result accumulator
     this._turnResult = { ownCoinPocketed: 0, strikerPocketed: false, queenPocketedNow: false };
     this._strikerHitSomething = false;
 
+    // Multiplayer state
+    this._net       = null;   // Network instance (null = local)
+    this._myPlayer  = -1;     // 0 or 1; -1 = local 2-player
+
     this._goListener = null;
     this._loop = this._loop.bind(this);
+    requestAnimationFrame(this._loop);
+  }
+
+  // ─── Start modes ──────────────────────────────────────────────────────────
+  startLocal() {
+    this._net      = null;
+    this._myPlayer = -1;
+    this._startRound(true);
+  }
+
+  startMultiplayer(net, myPlayer) {
+    this._net      = net;
+    this._myPlayer = myPlayer;
+
+    net.on('shot',                 msg => this._applyRemoteShot(msg));
+    net.on('new_round',            msg => this._startRound(msg.resetScores));
+    net.on('opponent_disconnected', () => {
+      this.rules.setMessage('Opponent disconnected', '#ff4444', 99);
+      this.rules.phase = 'MENU';
+    });
+
+    this._startRound(true);
   }
 
   // ─── Setup ────────────────────────────────────────────────────────────────
@@ -30,7 +56,7 @@ class Game {
     this.pieces  = this._createCoins();
     this.striker = null;
     this.rules.phase = 'MENU';
-    requestAnimationFrame(this._loop);
+    // Loop already started in constructor
   }
 
   _createCoins() {
@@ -55,9 +81,9 @@ class Game {
     return { x, y, vx:0, vy:0, r: CFG.CR, mass:1, type, id, pocketed:false };
   }
 
-  // Both players shoot from the same (bottom) baseline — single-device friendly
   _newStriker(player) {
-    return { x: CFG.CX, y: CFG.BL1_Y, vx:0, vy:0, r: CFG.SR, mass:1.6,
+    const y = (this._net && player === 1) ? CFG.BL2_Y : CFG.BL1_Y;
+    return { x: CFG.CX, y, vx:0, vy:0, r: CFG.SR, mass:1.6,
              type:'striker', id:'striker', pocketed:false, player };
   }
 
@@ -84,18 +110,21 @@ class Game {
 
   // ─── MENU / GAME_OVER ─────────────────────────────────────────────────────
   _tickMenu() {
+    // In multiplayer, only show the canvas MENU overlay — clicks handled by lobby HTML
+    if (this._net) { this.input.consumeRelease(); return; }
     if (this.input.consumeRelease() && this.rules.phase === 'MENU') {
       this._startRound(true);
     }
   }
 
-  // ─── PLACING: striker follows mouse along baseline ─────────────────────────
-  // Mousedown near striker → begin pull-back (AIMING phase)
+  // ─── PLACING ──────────────────────────────────────────────────────────────
   _tickPlacing() {
-    const r   = this.rules;
-    const bly = CFG.BL1_Y; // both players use bottom baseline
+    // In multiplayer, block input when it's the remote player's turn
+    if (this._isRemoteTurn()) { this.input.consumeRelease(); return; }
 
-    // Striker tracks mouse x along baseline (hover preview)
+    const r   = this.rules;
+    const bly = (this._net && r.currentPlayer === 1) ? CFG.BL2_Y : CFG.BL1_Y;
+
     if (!this.input.isDown) {
       const hx = Math.max(CFG.BL_X1 + CFG.SR, Math.min(CFG.BL_X2 - CFG.SR, this.input.currX));
       this.striker.x = hx;
@@ -108,13 +137,11 @@ class Game {
       const distToStriker = Math.sqrt(dx*dx + dy*dy);
 
       if (distToStriker < CFG.SR * 2.8) {
-        // Clicked near the striker — start pulling
         this._anchorX = this.striker.x;
         this._anchorY = this.striker.y;
         this._pulling = true;
         r.phase = 'AIMING';
       } else if (Math.abs(sy - bly) < 40 && sx >= CFG.BL_X1 && sx <= CFG.BL_X2) {
-        // Clicked elsewhere on baseline → reposition striker
         this.striker.x = Math.max(CFG.BL_X1 + CFG.SR, Math.min(CFG.BL_X2 - CFG.SR, sx));
       }
     }
@@ -122,12 +149,12 @@ class Game {
     this.input.consumeRelease();
   }
 
-  // ─── AIMING: striker moves with mouse (clamped to MAX_PULL) ───────────────
-  // Release fires the shot from anchor position.
+  // ─── AIMING ───────────────────────────────────────────────────────────────
   _tickAiming() {
+    if (this._isRemoteTurn()) { this.input.consumeRelease(); return; }
+
     const r = this.rules;
 
-    // Move striker to pulled-back position
     const dx = this.input.currX - this._anchorX;
     const dy = this.input.currY - this._anchorY;
     const dist = Math.sqrt(dx*dx + dy*dy);
@@ -138,17 +165,14 @@ class Game {
       this.striker.y = this._anchorY + (dy / dist) * clamped;
     }
 
-    // Release → shoot
     if (this.input.consumeRelease()) {
       const pullDist = Math.min(dist, CFG.MAX_PULL);
       const power = (pullDist / CFG.MAX_PULL) * CFG.MAX_POWER;
 
       if (power >= CFG.MIN_POWER && dist > 0) {
-        // Shot direction: from pulled pos toward anchor (slingshot forward)
         const dirX = (this._anchorX - this.striker.x) / pullDist;
         const dirY = (this._anchorY - this.striker.y) / pullDist;
 
-        // Reset striker to anchor, apply velocity
         this.striker.x  = this._anchorX;
         this.striker.y  = this._anchorY;
         this.striker.vx = dirX * power;
@@ -161,8 +185,12 @@ class Game {
         this._shotTimer  = 0;
         r.phase = 'SHOOTING';
         Sound.shoot();
+
+        // Send shot to remote opponent
+        if (this._net) {
+          this._net.sendShot(this._anchorX, this._anchorY, this.striker.vx, this.striker.vy);
+        }
       } else {
-        // Not enough pull — snap striker back to anchor
         this.striker.x = this._anchorX;
         this.striker.y = this._anchorY;
         r.phase = 'PLACING';
@@ -171,13 +199,31 @@ class Game {
       return;
     }
 
-    // Mouse lifted without consumeRelease (edge case) — cancel
     if (!this.input.isDown && !this.input.justReleased) {
       this.striker.x = this._anchorX;
       this.striker.y = this._anchorY;
       this._pulling  = false;
       r.phase = 'PLACING';
     }
+  }
+
+  // ─── Apply a shot received from the remote player ─────────────────────────
+  _applyRemoteShot({ anchorX, anchorY, vx, vy }) {
+    this.striker = this._newStriker(this.rules.currentPlayer);
+    this.striker.x  = anchorX;
+    this.striker.y  = anchorY;
+    this.striker.vx = vx;
+    this.striker.vy = vy;
+    this.striker.pocketed = false;
+
+    this._anchorX = anchorX;
+    this._anchorY = anchorY;
+    this._turnResult = { ownCoinPocketed:0, strikerPocketed:false, queenPocketedNow:false };
+    this._strikerHitSomething = false;
+    this.accumulator = 0;
+    this._shotTimer  = 0;
+    this.rules.phase = 'SHOOTING';
+    Sound.shoot();
   }
 
   // ─── SHOOTING ─────────────────────────────────────────────────────────────
@@ -211,7 +257,6 @@ class Game {
   _endTurn() {
     const r = this.rules;
 
-    // Foul: striker never touched a coin
     if (!this._strikerHitSomething && !this._turnResult.strikerPocketed) {
       r.setMessage('Foul! Striker missed all coins', '#ff4444', 2.5);
       Sound.foul();
@@ -242,18 +287,26 @@ class Game {
     this.input.justReleased = false;
   }
 
-  // ─── Game-over click listener ─────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  _isRemoteTurn() {
+    return this._net !== null && this.rules.currentPlayer !== this._myPlayer;
+  }
+
+  // ─── Game-over listener ───────────────────────────────────────────────────
   _attachGameOverListener() {
     if (this._goListener) this.canvas.removeEventListener('click', this._goListener);
     this._goListener = (e) => {
       if (this.rules.phase !== 'GAME_OVER') return;
       const rect = this.canvas.getBoundingClientRect();
       const sy   = (e.clientY - rect.top) * (CFG.SIZE / rect.height);
+
       if (sy > 392 && sy < 442) {
         this.canvas.removeEventListener('click', this._goListener); this._goListener = null;
+        if (this._net) this._net.sendNewRound(false);
         this._startRound(false);
       } else if (sy > 452 && sy < 502) {
         this.canvas.removeEventListener('click', this._goListener); this._goListener = null;
+        if (this._net) this._net.sendNewRound(true);
         this._startRound(true);
         this.rules.phase = 'MENU';
       }
@@ -270,18 +323,15 @@ class Game {
     Renderer.drawBoard(ctx);
 
     if (r.phase === 'PLACING' || r.phase === 'AIMING') {
-      Renderer.drawBaselineHighlight(ctx, r.currentPlayer);
+      Renderer.drawBaselineHighlight(ctx, r.currentPlayer, !!this._net);
     }
 
-    // Coins
     for (const p of this.pieces) Renderer.drawPiece(ctx, p);
 
-    // Striker (always draw — it moves during pull)
     if (this.striker && !this.striker.pocketed) {
       Renderer.drawPiece(ctx, this.striker);
     }
 
-    // Aim guide during pull-back
     if (r.phase === 'AIMING' && this.striker && !this.striker.pocketed) {
       const dx = this._anchorX - this.striker.x;
       const dy = this._anchorY - this.striker.y;
@@ -299,11 +349,9 @@ class Game {
       }
     }
 
-    // HUD
     Renderer.drawHUD(ctx, r.phaseLabel(), r.scores, r.pocketed, r.currentPlayer);
     if (r.message) Renderer.drawMessage(ctx, r.message, r.messageColor);
 
-    // ── Queen cover indicator ───────────────────────────────────────────────
     if (r.queenNeedsCover) {
       ctx.save();
       ctx.font = 'bold 13px monospace';
@@ -313,14 +361,26 @@ class Game {
       ctx.restore();
     }
 
-    // ── Overlays ────────────────────────────────────────────────────────────
+    // "Waiting for opponent" banner in multiplayer
+    if (this._net && this._isRemoteTurn() &&
+        (r.phase === 'PLACING' || r.phase === 'AIMING')) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, CFG.CY - 22, CFG.SIZE, 44);
+      ctx.font = 'bold 18px monospace';
+      ctx.fillStyle = '#ffcc44';
+      ctx.textAlign = 'center';
+      ctx.fillText('Waiting for opponent…', CFG.CX, CFG.CY + 7);
+      ctx.restore();
+    }
+
     if (r.phase === 'MENU') {
       const blink = Math.floor(this.blinkT * 1.8) % 2 === 0;
       Renderer.drawOverlay(ctx, [
         { text: 'CARROM',      font: 'bold 64px monospace', color: '#d4a020', y: 230 },
         { text: 'Board  Game', font: '22px monospace',      color: '#b08020', y: 272 },
         { text: '─────────────────────────────', font: '13px monospace', color: '#444', y: 308 },
-        { text: '↔  Hover baseline to position striker',   font: '13px monospace', color: '#999', y: 336 },
+        { text: '↔  Hover baseline to position striker',    font: '13px monospace', color: '#999', y: 336 },
         { text: '⬇  Click & drag striker backward to pull', font: '13px monospace', color: '#999', y: 358 },
         { text: '↑  Release to fire (more pull = more power)', font: '13px monospace', color: '#999', y: 380 },
         { text: 'P1 = BLACK  ·  P2 = WHITE  ·  Cover queen to keep it', font: '12px monospace', color: '#666', y: 408 },
@@ -343,13 +403,13 @@ class Game {
   }
 }
 
-// ─── Boot ────────────────────────────────────────────────────────────────────
+// ─── Boot ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('carrom');
   canvas.width  = CFG.SIZE;
   canvas.height = CFG.SIZE;
 
-  const game = new Game(canvas);
+  window.game = new Game(canvas);
   game.init();
 
   document.getElementById('soundBtn').addEventListener('click', () => {

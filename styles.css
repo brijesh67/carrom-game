@@ -58,3 +58,90 @@ body {
   color: #444;
   letter-spacing: 0.04em;
 }
+
+/* ── Lobby overlay ─────────────────────────────────────────────────────────── */
+#lobby {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 14, 0.93);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.lobby-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 300px;
+}
+
+.lobby-title {
+  font-size: 52px;
+  font-weight: bold;
+  color: #d4a020;
+  letter-spacing: 0.08em;
+  font-family: 'Courier New', monospace;
+}
+
+.lobby-sub {
+  font-size: 15px;
+  color: #7a6010;
+  margin-top: -10px;
+  margin-bottom: 6px;
+  font-family: 'Courier New', monospace;
+}
+
+.lobby-btn {
+  width: 100%;
+  padding: 11px 0;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #ccc;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.04em;
+  transition: background 0.15s;
+}
+.lobby-btn:hover  { background: rgba(255,255,255,0.13); }
+.lobby-btn.primary { border-color: rgba(80,160,80,0.5); color: #8f8; }
+
+.lobby-divider {
+  font-size: 11px;
+  color: #333;
+  font-family: 'Courier New', monospace;
+}
+
+.join-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.join-row #codeInput {
+  flex: 1;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 8px;
+  color: #eee;
+  font-size: 16px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  outline: none;
+}
+.join-row #codeInput:focus { border-color: rgba(255,200,60,0.5); }
+.join-row .lobby-btn { width: auto; padding: 10px 18px; }
+
+#lobbyMsg {
+  font-size: 12px;
+  color: #aaa;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  min-height: 18px;
+}
