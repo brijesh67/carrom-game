@@ -22,8 +22,10 @@ class Game {
     this._strikerHitSomething = false;
 
     // Multiplayer state
-    this._net       = null;   // Network instance (null = local)
-    this._myPlayer  = -1;     // 0 or 1; -1 = local 2-player
+    this._net        = null;   // Network instance (null = local)
+    this._myPlayer   = -1;     // 0 or 1; -1 = local 2-player
+    this._opponentX  = null;   // opponent striker X during their PLACING phase
+    this._placeTimer = 0;      // throttle for sending placing updates
 
     this._goListener = null;
     this._loop = this._loop.bind(this);
@@ -41,8 +43,9 @@ class Game {
     this._net      = net;
     this._myPlayer = myPlayer;
 
-    net.on('shot',       msg => this._applyRemoteShot(msg));
-    net.on('new_round',  msg => this._startRound(msg.resetScores));
+    net.on('shot',     msg => { this._opponentX = null; this._applyRemoteShot(msg); });
+    net.on('placing',  msg => { this._opponentX = msg.x; });
+    net.on('new_round', msg => this._startRound(msg.resetScores));
 
     const onDisconnect = (msg) => {
       this.rules.phase = 'MENU';
@@ -147,6 +150,12 @@ class Game {
       } else if (Math.abs(sy - bly) < 40 && sx >= CFG.BL_X1 && sx <= CFG.BL_X2) {
         this.striker.x = Math.max(CFG.BL_X1 + CFG.SR, Math.min(CFG.BL_X2 - CFG.SR, sx));
       }
+    }
+
+    // Stream striker position to opponent (~20fps)
+    if (this._net && this.striker) {
+      this._placeTimer++;
+      if (this._placeTimer % 3 === 0) this._net.sendPlacing(this.striker.x);
     }
 
     this.input.consumeRelease();
@@ -363,12 +372,24 @@ class Game {
       Renderer.drawPiece(ctx, this.striker);
     }
 
+    // Draw opponent ghost striker during their PLACING/AIMING turn
+    if (this._net && this._opponentX !== null) {
+      const oppPlayer = 1 - this._myPlayer;
+      const oppY = oppPlayer === 1 ? CFG.BL2_Y : CFG.BL1_Y;
+      ctx.save();
+      ctx.globalAlpha = 0.38;
+      Renderer.drawPiece(ctx, { x: this._opponentX, y: oppY, r: CFG.SR,
+                                type: 'striker', player: oppPlayer, pocketed: false });
+      ctx.restore();
+    }
+
     let _aimPower = 0;
     if (r.phase === 'AIMING' && this.striker && !this.striker.pocketed) {
       const dx = this._anchorX - this.striker.x;
       const dy = this._anchorY - this.striker.y;
       const pullDist = Math.sqrt(dx*dx + dy*dy);
-      _aimPower = (pullDist / CFG.MAX_PULL) * CFG.MAX_POWER;
+      // Dead zone: pull ≤ 6px counts as 0 power so the bar drops to 0 cleanly
+      _aimPower = pullDist <= 6 ? 0 : (pullDist / CFG.MAX_PULL) * CFG.MAX_POWER;
 
       if (pullDist > 6) {
         const ndx = dx / pullDist, ndy = dy / pullDist;
@@ -395,8 +416,8 @@ class Game {
     Renderer.drawHUD(ctx, r.phaseLabel(), r.scores, r.pocketed, r.currentPlayer);
     if (r.message) Renderer.drawMessage(ctx, r.message, r.messageColor);
 
-    // Power bar always in screen space (right side) so it's correct for both P1 and P2
-    if (r.phase === 'AIMING' && _aimPower > 0) Renderer.drawPowerBar(ctx, _aimPower);
+    // Power bar always in screen space — shown at 0% in dead zone so player knows it's safe to release
+    if (r.phase === 'AIMING') Renderer.drawPowerBar(ctx, _aimPower);
 
     // "Waiting for opponent" banner in multiplayer
     if (this._net && this._isRemoteTurn() &&

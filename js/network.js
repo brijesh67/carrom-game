@@ -57,4 +57,5 @@ class Network {
   joinRoom(code)            { this.send({ type: 'join_room', code }); }
   sendShot(ax, ay, vx, vy) { this.send({ type: 'shot', anchorX: ax, anchorY: ay, vx, vy }); }
   sendNewRound(resetScores) { this.send({ type: 'new_round', resetScores }); }
+  sendPlacing(x)            { this.send({ type: 'placing', x }); }
 }
