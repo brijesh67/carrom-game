@@ -12,7 +12,7 @@ class Rules {
     // Round state
     this.phase         = 'MENU';
     this.currentPlayer = 0;            // 0 = P1 (black), 1 = P2 (white)
-    this.playerColors  = ['black', 'white'];
+    this.playerColors  = ['white', 'black'];
 
     // Pocketed coins stored here (removed from board)
     this.pocketed = { black: [], white: [], queen: false };

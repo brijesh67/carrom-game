@@ -420,7 +420,7 @@ class Game {
         { text: '↔  Hover baseline to position striker',    font: '13px monospace', color: '#999', y: 336 },
         { text: '⬇  Click & drag striker backward to pull', font: '13px monospace', color: '#999', y: 358 },
         { text: '↑  Release to fire (more pull = more power)', font: '13px monospace', color: '#999', y: 380 },
-        { text: 'P1 = BLACK  ·  P2 = WHITE  ·  Cover queen to keep it', font: '12px monospace', color: '#666', y: 408 },
+        { text: 'P1 = WHITE  ·  P2 = BLACK  ·  Cover queen to keep it', font: '12px monospace', color: '#666', y: 408 },
         { text: blink ? '▶  CLICK TO START' : '', font: 'bold 18px monospace', color: '#d4a020', y: 472 },
       ]);
     }

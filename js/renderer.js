@@ -244,8 +244,8 @@ const Renderer = (() => {
 
     // Player labels
     const labels = [
-      { label: 'P1 ◆ BLACK', color: P1, x: 14 },
-      { label: 'P2 ◆ WHITE', color: P2, x: CFG.SIZE - 14 },
+      { label: 'P1 ◆ WHITE', color: P1, x: 14 },
+      { label: 'P2 ◆ BLACK', color: P2, x: CFG.SIZE - 14 },
     ];
     labels.forEach(({ label, color, x }, i) => {
       const active = currentPlayer === i;
