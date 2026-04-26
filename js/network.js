@@ -24,9 +24,18 @@ class Network {
   connect() {
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(SERVER_URL);
-      this.ws.onopen    = () => resolve();
-      this.ws.onerror   = () => reject(new Error('Cannot reach server'));
-      this.ws.onclose   = () => this._emit('disconnect', {});
+      this.ws.onopen = () => {
+        // Send a keepalive ping every 20s so Render's proxy doesn't drop the connection
+        this._pingTimer = setInterval(() => {
+          if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ type: 'ping' }));
+        }, 20000);
+        resolve();
+      };
+      this.ws.onerror = () => reject(new Error('Cannot reach server'));
+      this.ws.onclose = () => {
+        clearInterval(this._pingTimer);
+        this._emit('disconnect', {});
+      };
       this.ws.onmessage = ({ data }) => {
         let msg;
         try { msg = JSON.parse(data); } catch { return; }

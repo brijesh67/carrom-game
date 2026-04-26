@@ -41,12 +41,15 @@ class Game {
     this._net      = net;
     this._myPlayer = myPlayer;
 
-    net.on('shot',                 msg => this._applyRemoteShot(msg));
-    net.on('new_round',            msg => this._startRound(msg.resetScores));
-    net.on('opponent_disconnected', () => {
-      this.rules.setMessage('Opponent disconnected', '#ff4444', 99);
+    net.on('shot',       msg => this._applyRemoteShot(msg));
+    net.on('new_round',  msg => this._startRound(msg.resetScores));
+
+    const onDisconnect = (msg) => {
       this.rules.phase = 'MENU';
-    });
+      this.rules.setMessage(msg, '#ff4444', 99);
+    };
+    net.on('opponent_disconnected', () => onDisconnect('Opponent disconnected — return to lobby'));
+    net.on('disconnect',            () => onDisconnect('Connection lost — please refresh'));
 
     this._startRound(true);
   }
