@@ -3,7 +3,7 @@
 // Resolves the WebSocket server URL:
 //   - local dev  → ws://localhost:8080
 //   - production → update PROD_URL below after deploying to Render/Railway
-const PROD_URL = 'wss://YOUR-APP.onrender.com'; // ← update this after deploying server
+const PROD_URL = 'wss://carrom-server.onrender.com';
 const SERVER_URL = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
   ? 'ws://localhost:8080'
   : PROD_URL;
