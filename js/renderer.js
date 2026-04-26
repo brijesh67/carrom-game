@@ -287,18 +287,46 @@ const Renderer = (() => {
     ctx.textAlign = 'left';
   }
 
-  // ─── Power bar ────────────────────────────────────────────────────────────
-  function drawPowerBar(ctx, power, striker) {
-    if (!striker) return;
-    const ratio = Math.min(power / CFG.MAX_POWER, 1);
-    const bw = 80, bh = 8;
-    const bx = striker.x - bw/2, by = striker.y + striker.r + 10;
+  // ─── Power bar (vertical, right side of screen) ───────────────────────────
+  function drawPowerBar(ctx, power) {
+    const ratio     = Math.min(power / CFG.MAX_POWER, 1);
+    const bw        = 20;
+    const bh        = 260;
+    const bx        = CFG.SIZE - 44;
+    const by        = (CFG.SIZE - bh) / 2;
+    const fillH     = bh * ratio;
+    const barColor  = ratio < 0.5 ? C.POWER_FG : ratio < 0.8 ? '#ddaa00' : '#dd3300';
+
+    // Background track
     ctx.fillStyle = C.POWER_BG;
-    roundRect(ctx, bx, by, bw, bh, 3); ctx.fill();
-    const barColor = ratio < 0.5 ? C.POWER_FG
-      : ratio < 0.8 ? '#ddaa00' : '#dd3300';
+    roundRect(ctx, bx, by, bw, bh, 5); ctx.fill();
+
+    // Filled portion (grows upward from bottom)
+    if (fillH > 5) {
+      ctx.fillStyle = barColor;
+      roundRect(ctx, bx, by + bh - fillH, bw, fillH, 5); ctx.fill();
+    }
+
+    // Tick marks at 25 / 50 / 75 %
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1;
+    [0.25, 0.5, 0.75].forEach(t => {
+      const ty = by + bh - bh * t;
+      ctx.beginPath(); ctx.moveTo(bx, ty); ctx.lineTo(bx + bw, ty); ctx.stroke();
+    });
+
+    // Label above
+    ctx.save();
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = '#888';
+    ctx.textAlign = 'center';
+    ctx.fillText('PWR', bx + bw / 2, by - 6);
+
+    // Percentage below
+    ctx.font = `bold 13px monospace`;
     ctx.fillStyle = barColor;
-    roundRect(ctx, bx, by, bw * ratio, bh, 3); ctx.fill();
+    ctx.fillText(`${Math.round(ratio * 100)}%`, bx + bw / 2, by + bh + 16);
+    ctx.restore();
   }
 
   // ─── Overlays ─────────────────────────────────────────────────────────────

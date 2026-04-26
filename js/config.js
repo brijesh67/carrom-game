@@ -24,8 +24,8 @@ const CFG = {
   PD: 28,   // pocket detection radius (slightly larger for feel)
 
   // Shot
-  MAX_PULL:  130,   // max pull-back pixels
-  MAX_POWER: 1200,  // max shot speed px/s
+  MAX_PULL:  200,   // max pull-back pixels
+  MAX_POWER: 2000,  // max shot speed px/s
   MIN_POWER:  80,   // min speed to count as a shot
 
   // Baselines

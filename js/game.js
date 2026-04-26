@@ -363,11 +363,12 @@ class Game {
       Renderer.drawPiece(ctx, this.striker);
     }
 
+    let _aimPower = 0;
     if (r.phase === 'AIMING' && this.striker && !this.striker.pocketed) {
       const dx = this._anchorX - this.striker.x;
       const dy = this._anchorY - this.striker.y;
       const pullDist = Math.sqrt(dx*dx + dy*dy);
-      const power = (pullDist / CFG.MAX_PULL) * CFG.MAX_POWER;
+      _aimPower = (pullDist / CFG.MAX_PULL) * CFG.MAX_POWER;
 
       if (pullDist > 6) {
         const ndx = dx / pullDist, ndy = dy / pullDist;
@@ -375,8 +376,7 @@ class Game {
           this._anchorX, this._anchorY, ndx, ndy,
           this.pieces.filter(p => !p.pocketed)
         );
-        Renderer.drawAimGuide(ctx, this.striker, this._anchorX, this._anchorY, power, ray);
-        Renderer.drawPowerBar(ctx, power, { x: this._anchorX, y: this._anchorY, r: CFG.SR });
+        Renderer.drawAimGuide(ctx, this.striker, this._anchorX, this._anchorY, _aimPower, ray);
       }
     }
 
@@ -394,6 +394,9 @@ class Game {
 
     Renderer.drawHUD(ctx, r.phaseLabel(), r.scores, r.pocketed, r.currentPlayer);
     if (r.message) Renderer.drawMessage(ctx, r.message, r.messageColor);
+
+    // Power bar always in screen space (right side) so it's correct for both P1 and P2
+    if (r.phase === 'AIMING' && _aimPower > 0) Renderer.drawPowerBar(ctx, _aimPower);
 
     // "Waiting for opponent" banner in multiplayer
     if (this._net && this._isRemoteTurn() &&
