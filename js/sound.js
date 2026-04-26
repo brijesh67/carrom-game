@@ -6,10 +6,12 @@ const Sound = (() => {
 
   function ctx() {
     if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Resume if browser suspended it (required by autoplay policy)
+    if (_ctx.state === 'suspended') _ctx.resume();
     return _ctx;
   }
 
-  function tone(freq, type, duration, vol, fadeStart) {
+  function tone(freq, type, duration, vol) {
     if (!enabled) return;
     try {
       const ac = ctx();
@@ -33,7 +35,7 @@ const Sound = (() => {
       const ac = ctx();
       const buf = ac.createBuffer(1, ac.sampleRate * duration, ac.sampleRate);
       const data = buf.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = (Math.random()*2-1) * vol;
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random()*2-1);
       const src  = ac.createBufferSource();
       const gain = ac.createGain();
       src.buffer = buf;
@@ -46,10 +48,34 @@ const Sound = (() => {
 
   return {
     toggle() { enabled = !enabled; return enabled; },
-    hit: (() => { let last = 0; return () => { const now = performance.now(); if (now - last < 120) return; last = now; tone(350 + Math.random()*150, 'square', 0.07, 0.18); }; })(),
-    wall()   { tone(220, 'triangle', 0.06, 0.12); },
+
+    // Sharp crack when striker hits a coin — deep thud + high click layered
+    strikerHit: (() => {
+      let last = 0;
+      return () => {
+        const now = performance.now();
+        if (now - last < 80) return;
+        last = now;
+        tone(180, 'sine',     0.12, 0.55);   // deep body thud
+        tone(900, 'triangle', 0.06, 0.40);   // high-freq click on top
+        noise(0.04, 0.25);                   // brief noise burst for impact texture
+      };
+    })(),
+
+    // Softer click for coin-coin collisions
+    hit: (() => {
+      let last = 0;
+      return () => {
+        const now = performance.now();
+        if (now - last < 100) return;
+        last = now;
+        tone(500 + Math.random()*200, 'triangle', 0.08, 0.28);
+      };
+    })(),
+
+    wall()   { tone(200, 'triangle', 0.07, 0.20); },
     pocket() { tone(180, 'sine', 0.35, 0.28); setTimeout(() => tone(120, 'sine', 0.25, 0.20), 80); },
-    shoot()  { noise(0.04, 0.15); },
+    shoot()  { noise(0.05, 0.20); },
     foul()   { tone(120, 'sawtooth', 0.4, 0.2); },
     win()    { [0,150,300].forEach(d => setTimeout(() => tone(660, 'sine', 0.25, 0.2), d)); },
   };

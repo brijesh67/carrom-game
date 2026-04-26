@@ -235,8 +235,12 @@ class Game {
     const allPieces = [this.striker, ...this.pieces];
 
     const onCollision = (a, b) => {
-      if (a === this.striker || b === this.striker) this._strikerHitSomething = true;
-      Sound.hit();
+      if (a === this.striker || b === this.striker) {
+        this._strikerHitSomething = true;
+        Sound.strikerHit();
+      } else {
+        Sound.hit();
+      }
     };
 
     while (this.accumulator >= CFG.PHYS_DT) {
