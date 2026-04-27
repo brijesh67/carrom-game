@@ -29,6 +29,20 @@ class Game {
 
     this._goListener = null;
     this._loop = this._loop.bind(this);
+
+    // Pause the loop when the tab/app is hidden (phone call, app switch).
+    // On resume, reset lastTs so dt starts fresh and physics doesn't jump.
+    this._paused = false;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this._paused = true;
+      } else if (this._paused) {
+        this._paused = false;
+        this.lastTs = 0;
+        requestAnimationFrame(this._loop);
+      }
+    });
+
     requestAnimationFrame(this._loop);
   }
 
@@ -53,6 +67,13 @@ class Game {
     };
     net.on('opponent_disconnected', () => onDisconnect('Opponent disconnected — return to lobby'));
     net.on('disconnect',            () => onDisconnect('Connection lost — please refresh'));
+
+    // Brief interruptions (phone call, app switch): show banner instead of
+    // ending the game. Server holds the room open for a 30s grace window.
+    net.on('reconnecting',          () => this.rules.setMessage('Reconnecting…', '#ffaa44', 99));
+    net.on('reconnected',           () => this.rules.setMessage('Connected', '#88ff88', 1.5));
+    net.on('opponent_reconnecting', () => this.rules.setMessage('Opponent reconnecting…', '#ffaa44', 99));
+    net.on('opponent_reconnected',  () => this.rules.setMessage('Opponent back', '#88ff88', 1.5));
 
     this._startRound(true);
   }
@@ -97,6 +118,8 @@ class Game {
 
   // ─── Main loop ────────────────────────────────────────────────────────────
   _loop(ts) {
+    if (this._paused) return;
+    if (this.lastTs === 0) this.lastTs = ts;
     const dt = Math.min((ts - this.lastTs) / 1000, 0.05);
     this.lastTs = ts;
     this.blinkT += dt;
